@@ -1,0 +1,12 @@
+extends:
+  - minimal
+
+rules:
+  operation-description: warn
+  operation-summary: warn
+  operation-operationId: warn
+  no-unused-components: warn
+  tag-description: warn
+  info-license: warn
+  security-defined: warn
+  no-empty-servers: warn

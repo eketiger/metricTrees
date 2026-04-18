@@ -1,0 +1,161 @@
+datasource db {
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  name               String?
+  avatar             String?
+  authProvider       String
+  googleId           String?   @unique
+  githubId           String?   @unique
+  githubUsername     String?
+  role               String    @default("builder")
+  lastLoginAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  stripeCustomerId   String?   @unique
+  subscriptionId     String?   @unique
+  subscriptionStatus String?
+  subscriptionPlan   String?   @default("free")
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean   @default(false)
+
+  gdprConsentAt         DateTime?
+  gdprConsentVersion    String?
+  dataExportRequestedAt DateTime?
+  deletionRequestedAt   DateTime?
+
+  metricTrees   MetricTree[]
+  subscriptions Subscription[]
+  invoices      Invoice[]
+  copilotUsage  CopilotUsage[]
+  askUsage      AskUsage[]
+  treeAsks      TreeAsk[]
+}
+
+model MetricTree {
+  id           String    @id @default(cuid())
+  userId       String
+  title        String
+  description  String?   @db.Text
+  status       String    @default("draft")
+  isPublic     Boolean   @default(false)
+  vectorizedAt DateTime?
+  vectorStatus String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user  User         @relation(fields: [userId], references: [id])
+  nodes MetricNode[]
+  asks  TreeAsk[]
+
+  @@index([userId])
+}
+
+model MetricNode {
+  id           String   @id @default(cuid())
+  treeId       String
+  parentId     String?
+  title        String
+  description  String?  @db.Text
+  metricType   String
+  unit         String?
+  targetValue  Float?
+  currentValue Float?
+  formula      String?  @db.Text
+  depth        Int      @default(0)
+  order        Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tree     MetricTree   @relation(fields: [treeId], references: [id])
+  children MetricNode[] @relation("NodeChildren")
+  parent   MetricNode?  @relation("NodeChildren", fields: [parentId], references: [id])
+
+  @@index([treeId])
+  @@index([parentId])
+}
+
+model Subscription {
+  id                   String    @id @default(cuid())
+  userId               String
+  stripeSubscriptionId String    @unique
+  stripePriceId        String
+  status               String
+  plan                 String
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean
+  canceledAt           DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model Invoice {
+  id              String   @id @default(cuid())
+  userId          String
+  stripeInvoiceId String   @unique
+  amountPaid      Int
+  currency        String
+  status          String
+  invoicePdf      String?
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model CopilotUsage {
+  id     String @id @default(cuid())
+  userId String
+  date   String
+  count  Int    @default(0)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, date])
+  @@index([userId])
+}
+
+model AskUsage {
+  id     String @id @default(cuid())
+  userId String
+  treeId String
+  date   String
+  count  Int    @default(0)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, treeId, date])
+  @@index([userId])
+  @@index([treeId])
+}
+
+model TreeAsk {
+  id        String   @id @default(cuid())
+  treeId    String
+  userId    String
+  question  String   @db.Text
+  answer    String   @db.Text
+  createdAt DateTime @default(now())
+
+  tree MetricTree @relation(fields: [treeId], references: [id])
+  user User       @relation(fields: [userId], references: [id])
+
+  @@index([treeId])
+  @@index([userId])
+}
