@@ -3,8 +3,9 @@ import { knowledgeIndex } from '@/lib/pinecone';
 import type { IndexedChunkMeta } from '@/lib/knowledge-base';
 import { notFound } from '@/lib/api-auth';
 
-export async function GET(_req: Request, { params }: { params: { treeId: string } }) {
-  const tree = await prisma.metricTree.findUnique({ where: { id: params.treeId } });
+export async function GET(_req: Request, { params }: { params: Promise<{ treeId: string }> }) {
+  const { treeId } = await params;
+  const tree = await prisma.metricTree.findUnique({ where: { id: treeId } });
   if (!tree) return notFound('Tree not found');
 
   const seedId = `${tree.id}_0`;

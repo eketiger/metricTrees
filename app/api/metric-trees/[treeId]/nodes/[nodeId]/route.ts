@@ -21,10 +21,11 @@ async function loadAuthorized(treeId: string, nodeId: string, userId: string) {
   return { node };
 }
 
-export async function PUT(req: Request, { params }: { params: { treeId: string; nodeId: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ treeId: string; nodeId: string }> }) {
   const user = await requireUser();
   if (!user) return unauthorized();
-  const { node, err } = await loadAuthorized(params.treeId, params.nodeId, user.id);
+  const { treeId, nodeId } = await params;
+  const { node, err } = await loadAuthorized(treeId, nodeId, user.id);
   if (err) return err;
 
   const parsed = updateSchema.safeParse(await req.json().catch(() => ({})));
@@ -34,10 +35,11 @@ export async function PUT(req: Request, { params }: { params: { treeId: string; 
   return Response.json({ node: updated });
 }
 
-export async function DELETE(_req: Request, { params }: { params: { treeId: string; nodeId: string } }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ treeId: string; nodeId: string }> }) {
   const user = await requireUser();
   if (!user) return unauthorized();
-  const { node, err } = await loadAuthorized(params.treeId, params.nodeId, user.id);
+  const { treeId, nodeId } = await params;
+  const { node, err } = await loadAuthorized(treeId, nodeId, user.id);
   if (err) return err;
   await prisma.metricNode.delete({ where: { id: node!.id } });
   return Response.json({ ok: true });
