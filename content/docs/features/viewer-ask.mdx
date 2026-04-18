@@ -1,0 +1,12 @@
+---
+title: Viewer Ask
+description: Natural-language Q&A on any published metric tree.
+---
+
+Viewer Ask lets anyone with access to a published tree ask questions in plain English.
+Answers are produced by Claude using a RAG pipeline that retrieves only the most semantically
+relevant chunks of the tree. Answers are strictly grounded in the tree's content.
+
+- Rate limit: 20 questions per tree per user per day.
+- Conversation history is supported for multi-turn context.
+- If the answer isn't in the tree, the assistant says so.

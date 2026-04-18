@@ -1,0 +1,16 @@
+---
+title: Metric trees
+description: How metric trees are structured in Metrics.
+---
+
+A metric tree is a directed graph of nodes whose edges represent causal or compositional
+relationships between metrics. Inputs flow UP to outputs.
+
+**Node types**
+
+- `input` — a raw measured value.
+- `formula` — derived via an expression referencing other nodes' slugs.
+- `output` — a top-level goal or north star.
+- `segment` — a breakdown of a metric.
+- `strategy` — an initiative or bet.
+- `annotation` — contextual note.

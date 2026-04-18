@@ -1,0 +1,387 @@
+openapi: 3.1.0
+info:
+  title: Metrics API
+  version: 1.0.0
+  description: |
+    The Metrics API lets you programmatically manage metric trees, nodes, search content,
+    handle billing, and interact with AI features.
+  contact:
+    url: https://yourdomain.com/help
+
+servers:
+  - url: https://api.yourdomain.com
+    description: Production
+  - url: http://localhost:3000
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: MetricTrees
+  - name: Nodes
+  - name: Search
+  - name: Ask
+  - name: Billing
+  - name: Copilot
+  - name: Account
+  - name: Health
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+    MetricTree:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        status: { type: string, enum: [draft, published, archived] }
+        isPublic: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    MetricNode:
+      type: object
+      properties:
+        id: { type: string }
+        treeId: { type: string }
+        parentId: { type: string, nullable: true }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        metricType: { type: string, enum: [goal, kpi, input, output, diagnostic] }
+        unit: { type: string, nullable: true }
+        targetValue: { type: number, nullable: true }
+        currentValue: { type: number, nullable: true }
+        formula: { type: string, nullable: true }
+        depth: { type: integer }
+        order: { type: integer }
+    Subscription:
+      type: object
+      properties:
+        plan: { type: string }
+        status: { type: string, nullable: true }
+        currentPeriodEnd: { type: string, format: date-time, nullable: true }
+        cancelAtPeriodEnd: { type: boolean }
+
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Health check
+      description: Liveness probe used by load balancers and container orchestrators.
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  version: { type: string, example: 'abc123' }
+
+  /api/metric-trees:
+    get:
+      tags: [MetricTrees]
+      summary: List the authenticated user's metric trees
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trees:
+                    type: array
+                    items: { $ref: '#/components/schemas/MetricTree' }
+        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    post:
+      tags: [MetricTrees]
+      summary: Create a new metric tree
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string }
+                description: { type: string }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tree: { $ref: '#/components/schemas/MetricTree' }
+        '402': { description: Plan limit reached }
+
+  /api/metric-trees/{treeId}:
+    parameters:
+      - in: path
+        name: treeId
+        required: true
+        schema: { type: string }
+    get:
+      tags: [MetricTrees]
+      summary: Get a metric tree
+      responses:
+        '200': { description: OK }
+        '403': { description: Forbidden }
+        '404': { description: Not found }
+    put:
+      tags: [MetricTrees]
+      summary: Update a metric tree (title, status, visibility)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                status: { type: string, enum: [draft, published, archived] }
+                isPublic: { type: boolean }
+      responses:
+        '200': { description: OK }
+    delete:
+      tags: [MetricTrees]
+      summary: Delete a metric tree
+      responses:
+        '200': { description: Deleted }
+
+  /api/metric-trees/{treeId}/nodes:
+    parameters:
+      - in: path
+        name: treeId
+        required: true
+        schema: { type: string }
+    post:
+      tags: [Nodes]
+      summary: Create a node inside a tree
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MetricNode' }
+      responses:
+        '201': { description: Created }
+
+  /api/metric-trees/{treeId}/nodes/{nodeId}:
+    parameters:
+      - in: path
+        name: treeId
+        required: true
+        schema: { type: string }
+      - in: path
+        name: nodeId
+        required: true
+        schema: { type: string }
+    put:
+      tags: [Nodes]
+      summary: Update a node
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MetricNode' }
+      responses:
+        '200': { description: OK }
+    delete:
+      tags: [Nodes]
+      summary: Delete a node
+      responses:
+        '200': { description: Deleted }
+
+  /api/metric-trees/{treeId}/ask:
+    parameters:
+      - in: path
+        name: treeId
+        required: true
+        schema: { type: string }
+    post:
+      tags: [Ask]
+      summary: Ask a question about a metric tree (Viewer Ask)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question]
+              properties:
+                question: { type: string, maxLength: 500 }
+                conversationHistory:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role: { type: string, enum: [user, assistant] }
+                      content: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  answer: { type: string }
+        '429': { description: Daily limit reached }
+        '502': { description: AI service unavailable }
+        '503': { description: AI temporarily busy }
+
+  /api/metric-trees/{treeId}/similar:
+    parameters:
+      - in: path
+        name: treeId
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Search]
+      summary: Get metric trees similar to the given one
+      security: []
+      responses:
+        '200': { description: OK }
+
+  /api/search:
+    post:
+      tags: [Search]
+      summary: Semantic search across published metric trees
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query: { type: string }
+                topK: { type: integer }
+                filter:
+                  type: object
+                  properties:
+                    authorId: { type: string }
+                    plan: { type: string }
+      responses:
+        '200': { description: OK }
+
+  /api/billing/create-checkout-session:
+    post:
+      tags: [Billing]
+      summary: Create a Stripe Checkout session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [priceId, successUrl, cancelUrl]
+              properties:
+                priceId: { type: string }
+                successUrl: { type: string }
+                cancelUrl: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url: { type: string }
+
+  /api/billing/create-portal-session:
+    post:
+      tags: [Billing]
+      summary: Create a Stripe Customer Portal session
+      responses:
+        '200': { description: OK }
+
+  /api/billing/subscription:
+    get:
+      tags: [Billing]
+      summary: Get the current user's subscription summary
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Subscription' }
+
+  /api/billing/cancel:
+    post:
+      tags: [Billing]
+      summary: Set cancel_at_period_end for the current subscription
+      responses:
+        '200': { description: OK }
+
+  /api/copilot/suggest:
+    post:
+      tags: [Copilot]
+      summary: Request an AI Copilot suggestion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [treeId, action]
+              properties:
+                treeId: { type: string }
+                nodeId: { type: string }
+                action:
+                  type: string
+                  enum:
+                    - improve_description
+                    - suggest_children
+                    - suggest_formula
+                    - explain_metric
+                    - validate_tree
+                    - suggest_kpis
+                    - fix_structure
+                selectedText: { type: string }
+                context: { type: string }
+                nodeType: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suggestion: { type: string }
+        '403': { description: Plan not eligible }
+        '429': { description: Daily Copilot limit reached }
+
+  /api/user/data-export:
+    get:
+      tags: [Account]
+      summary: Download all of your account data
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json: {}
+
+  /api/user/account:
+    delete:
+      tags: [Account]
+      summary: Permanently delete your account (GDPR right-to-erasure)
+      responses:
+        '200': { description: OK }
