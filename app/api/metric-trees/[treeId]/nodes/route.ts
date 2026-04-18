@@ -16,10 +16,11 @@ const createSchema = z.object({
   order: z.number().int().min(0).optional(),
 });
 
-export async function POST(req: Request, { params }: { params: { treeId: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ treeId: string }> }) {
   const user = await requireUser();
   if (!user) return unauthorized();
-  const tree = await prisma.metricTree.findUnique({ where: { id: params.treeId } });
+  const { treeId } = await params;
+  const tree = await prisma.metricTree.findUnique({ where: { id: treeId } });
   if (!tree) return notFound('Tree not found');
   if (tree.userId !== user.id) return forbidden();
 

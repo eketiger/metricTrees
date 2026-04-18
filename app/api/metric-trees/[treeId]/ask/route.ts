@@ -16,11 +16,12 @@ const askSchema = z.object({
 
 const SYSTEM = `You are a helpful analyst answering questions about a specific metric tree — a structured hierarchy of business goals, KPIs, and sub-metrics. Answer ONLY based on the provided metric tree content and node data. If the answer is not found in the tree, say: "I couldn't find that in this metric tree." Be concise and analytical. Do not hallucinate metrics or values.`;
 
-export async function POST(req: Request, { params }: { params: { treeId: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ treeId: string }> }) {
   const user = await requireUser();
   if (!user) return unauthorized();
 
-  const tree = await prisma.metricTree.findUnique({ where: { id: params.treeId } });
+  const { treeId } = await params;
+  const tree = await prisma.metricTree.findUnique({ where: { id: treeId } });
   if (!tree) return notFound('Tree not found');
   if (tree.userId !== user.id && !tree.isPublic) return forbidden();
 

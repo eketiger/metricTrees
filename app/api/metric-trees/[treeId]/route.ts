@@ -3,11 +3,12 @@ import prisma from '@/prisma/client';
 import { badRequest, forbidden, notFound, requireUser, unauthorized } from '@/lib/api-auth';
 import { deleteMetricTreeVectors, indexMetricTree, updateMetricTreeVectors } from '@/lib/knowledge-base';
 
-export async function GET(_req: Request, { params }: { params: { treeId: string } }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ treeId: string }> }) {
   const user = await requireUser();
   if (!user) return unauthorized();
+  const { treeId } = await params;
   const tree = await prisma.metricTree.findUnique({
-    where: { id: params.treeId },
+    where: { id: treeId },
     include: { nodes: true },
   });
   if (!tree) return notFound('Tree not found');
@@ -22,10 +23,11 @@ const updateSchema = z.object({
   isPublic: z.boolean().optional(),
 });
 
-export async function PUT(req: Request, { params }: { params: { treeId: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ treeId: string }> }) {
   const user = await requireUser();
   if (!user) return unauthorized();
-  const tree = await prisma.metricTree.findUnique({ where: { id: params.treeId } });
+  const { treeId } = await params;
+  const tree = await prisma.metricTree.findUnique({ where: { id: treeId } });
   if (!tree) return notFound('Tree not found');
   if (tree.userId !== user.id) return forbidden();
 
@@ -51,10 +53,11 @@ export async function PUT(req: Request, { params }: { params: { treeId: string }
   return Response.json({ tree: updated });
 }
 
-export async function DELETE(_req: Request, { params }: { params: { treeId: string } }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ treeId: string }> }) {
   const user = await requireUser();
   if (!user) return unauthorized();
-  const tree = await prisma.metricTree.findUnique({ where: { id: params.treeId } });
+  const { treeId } = await params;
+  const tree = await prisma.metricTree.findUnique({ where: { id: treeId } });
   if (!tree) return notFound('Tree not found');
   if (tree.userId !== user.id) return forbidden();
 

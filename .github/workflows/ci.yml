@@ -15,7 +15,7 @@ jobs:
         with:
           node-version: 20
       - name: Install dependencies
-        run: npm install --no-audit --no-fund --legacy-peer-deps
+        run: npm install --no-audit --no-fund
       - name: Generate Prisma client (best-effort)
         run: DATABASE_URL="mysql://placeholder:placeholder@localhost:3306/placeholder" npx prisma generate || true
       - run: npm run test -- --coverage
@@ -48,5 +48,5 @@ jobs:
         with:
           node-version: 20
       - name: Install dependencies
-        run: npm install --no-audit --no-fund --legacy-peer-deps
+        run: npm install --no-audit --no-fund
       - run: npx jest --passWithNoTests

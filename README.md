@@ -35,7 +35,7 @@ analytics gated behind cookie consent.
 
 | Layer | Technology |
 |---|---|
-| Framework | Next.js 14 (App Router) |
+| Framework | Next.js 15 (App Router) |
 | Language | TypeScript |
 | Database | PlanetScale (MySQL) via Prisma ORM |
 | Auth | NextAuth.js — Google OAuth, GitHub OAuth |

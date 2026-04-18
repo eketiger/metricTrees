@@ -6,11 +6,12 @@ const TreeEditor = dynamic(() => import('@/app/components/TreeEditor').then((m) 
   ssr: false,
 });
 
-export default async function TreePage({ params }: { params: { treeId: string } }) {
-  const tree = await prisma.metricTree.findUnique({ where: { id: params.treeId } }).catch(() => null);
+export default async function TreePage({ params }: { params: Promise<{ treeId: string }> }) {
+  const { treeId } = await params;
+  const tree = await prisma.metricTree.findUnique({ where: { id: treeId } }).catch(() => null);
   if (!tree) {
     // Fall back to showing empty editor for brand-new trees that haven't persisted.
-    return <TreeEditor treeId={params.treeId} />;
+    return <TreeEditor treeId={treeId} />;
   }
   return (
     <TreeEditor
