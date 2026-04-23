@@ -40,6 +40,7 @@ model User {
   copilotUsage  CopilotUsage[]
   askUsage      AskUsage[]
   treeAsks      TreeAsk[]
+  dataSources   DataSource[]
 }
 
 model MetricTree {
@@ -77,12 +78,42 @@ model MetricNode {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  tree     MetricTree   @relation(fields: [treeId], references: [id])
-  children MetricNode[] @relation("NodeChildren")
-  parent   MetricNode?  @relation("NodeChildren", fields: [parentId], references: [id])
+  dataSourceId String?
+  query        String?  @db.Text
+  lastSyncAt   DateTime?
+  lastSyncError String? @db.Text
+
+  tree       MetricTree   @relation(fields: [treeId], references: [id])
+  children   MetricNode[] @relation("NodeChildren")
+  parent     MetricNode?  @relation("NodeChildren", fields: [parentId], references: [id])
+  dataSource DataSource?  @relation(fields: [dataSourceId], references: [id])
 
   @@index([treeId])
   @@index([parentId])
+  @@index([dataSourceId])
+}
+
+model DataSource {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String
+  type        String    @default("mysql")
+  host        String
+  port        Int       @default(3306)
+  database    String
+  username    String
+  passwordEnc String    @db.Text
+  ssl         Boolean   @default(true)
+  status      String    @default("idle")
+  lastError   String?   @db.Text
+  lastTestAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user  User         @relation(fields: [userId], references: [id])
+  nodes MetricNode[]
+
+  @@index([userId])
 }
 
 model Subscription {

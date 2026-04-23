@@ -20,6 +20,9 @@ import ReactFlow, {
 import { MetricNodeComponent } from './MetricNode';
 import { AskPanel } from './AskPanel';
 import { CopilotToolbar } from './CopilotToolbar';
+import { QueryPanel } from './QueryPanel';
+import { DataSourcesModal } from './DataSourcesModal';
+import { useLiveValues } from './useLiveValues';
 import { SEED_NODES, SEED_EDGES, type DesignerNode, type DesignerEdge } from '@/lib/seed-data';
 import { computeAll } from '@/lib/compute';
 
@@ -55,6 +58,10 @@ function EditorInner({ treeId, initialTitle = 'Untitled Tree', initialStatus = '
   const [tool, setTool] = useState<'select' | 'metric' | 'formula' | 'output' | 'strategy' | 'note'>('select');
   const [askOpen, setAskOpen] = useState(false);
   const [status, setStatus] = useState(initialStatus);
+  const [dataSourcesOpen, setDataSourcesOpen] = useState(false);
+  const [rightTab, setRightTab] = useState<'copilot' | 'query'>('copilot');
+  const [liveMode, setLiveMode] = useState(false);
+  const liveStream = useLiveValues(treeId, liveMode);
 
   const { computed, errors } = useMemo(
     () => computeAll(nodes as unknown as { id: string; data: { kind: string; name?: string; value?: number; formula?: string } }[]),
@@ -63,14 +70,23 @@ function EditorInner({ treeId, initialTitle = 'Untitled Tree', initialStatus = '
 
   const displayNodes = useMemo(
     () =>
-      nodes.map((n) => ({
-        ...n,
-        type: 'metric',
-        data: { ...n.data, computedValue: computed[n.id], error: errors[n.id], onRename: (id: string, name: string, cancel?: boolean) => {
-          setNodes((ns) => ns.map((nn) => nn.id === id ? { ...nn, data: { ...nn.data, name: cancel ? nn.data.name : name, editing: false } } : nn));
-        } },
-      })),
-    [nodes, computed, errors],
+      nodes.map((n) => {
+        const liveVal = liveStream.values[n.id];
+        const liveErr = liveStream.errors[n.id];
+        return {
+          ...n,
+          type: 'metric',
+          data: {
+            ...n.data,
+            computedValue: liveVal !== undefined ? liveVal : computed[n.id],
+            error: liveErr ?? errors[n.id],
+            onRename: (id: string, name: string, cancel?: boolean) => {
+              setNodes((ns) => ns.map((nn) => nn.id === id ? { ...nn, data: { ...nn.data, name: cancel ? nn.data.name : name, editing: false } } : nn));
+            },
+          },
+        };
+      }),
+    [nodes, computed, errors, liveStream.values, liveStream.errors],
   );
 
   const displayEdges = useMemo(
@@ -138,6 +154,17 @@ function EditorInner({ treeId, initialTitle = 'Untitled Tree', initialStatus = '
         </div>
         <div className="tb-group">
           <button className="tb-btn" onClick={() => rf.fitView({ padding: 0.15, duration: 300 })}>Fit</button>
+          <button className="tb-btn" onClick={() => setDataSourcesOpen(true)} title="Manage data sources">
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><ellipse cx="7" cy="3.5" rx="4.5" ry="1.5" stroke="currentColor"/><path d="M2.5 3.5V10c0 .8 2 1.5 4.5 1.5s4.5-.7 4.5-1.5V3.5M2.5 7c0 .8 2 1.5 4.5 1.5S11.5 7.8 11.5 7" stroke="currentColor"/></svg>
+            Data
+          </button>
+          <button
+            className={liveMode ? 'tb-btn primary' : 'tb-btn'}
+            onClick={() => setLiveMode((v) => !v)}
+            title={liveMode ? 'Live polling is on' : 'Start live polling'}
+          >
+            {liveMode ? (liveStream.connected ? '● Live' : '○ Connecting…') : 'Go Live'}
+          </button>
           <button className="tb-btn" onClick={() => setAskOpen(true)}>Ask</button>
           <button className={status === 'published' ? 'tb-btn primary' : 'tb-btn'} onClick={publish}>
             {status === 'published' ? 'Published' : 'Publish'}
@@ -209,7 +236,33 @@ function EditorInner({ treeId, initialTitle = 'Untitled Tree', initialStatus = '
 
       <div className="right">
         {selectedNode ? (
-          <CopilotToolbar treeId={treeId} node={selectedNode} onPatch={(patch) => setNodes((ns) => ns.map((n) => n.id === selectedNode.id ? { ...n, data: { ...n.data, ...patch } } : n))} />
+          <>
+            <div className="right-tabs">
+              <div className={`right-tab${rightTab === 'copilot' ? ' active' : ''}`} onClick={() => setRightTab('copilot')}>Copilot</div>
+              <div className={`right-tab${rightTab === 'query' ? ' active' : ''}`} onClick={() => setRightTab('query')}>Query</div>
+            </div>
+            <div className="right-body">
+              {rightTab === 'copilot' && (
+                <CopilotToolbar
+                  treeId={treeId}
+                  node={selectedNode}
+                  onPatch={(patch) => setNodes((ns) => ns.map((n) => n.id === selectedNode.id ? { ...n, data: { ...n.data, ...patch } } : n))}
+                />
+              )}
+              {rightTab === 'query' && (
+                <QueryPanel
+                  treeId={treeId}
+                  nodeId={selectedNode.id}
+                  dataSourceId={(selectedNode.data as { dataSourceId?: string | null }).dataSourceId ?? null}
+                  initialQuery={(selectedNode.data as { query?: string }).query ?? ''}
+                  onValue={(value) => setNodes((ns) => ns.map((n) => n.id === selectedNode.id ? { ...n, data: { ...n.data, value, computedValue: value ?? undefined } } : n))}
+                  onError={(e) => setNodes((ns) => ns.map((n) => n.id === selectedNode.id ? { ...n, data: { ...n.data, error: e } } : n))}
+                  onDataSourceChange={(id) => setNodes((ns) => ns.map((n) => n.id === selectedNode.id ? { ...n, data: { ...n.data, dataSourceId: id } } : n))}
+                  onOpenDataSources={() => setDataSourcesOpen(true)}
+                />
+              )}
+            </div>
+          </>
         ) : (
           <div className="inspector-empty">
             <div className="inspector-empty-mark">◌</div>
@@ -219,6 +272,7 @@ function EditorInner({ treeId, initialTitle = 'Untitled Tree', initialStatus = '
       </div>
 
       {askOpen && <AskPanel treeId={treeId} onClose={() => setAskOpen(false)} />}
+      {dataSourcesOpen && <DataSourcesModal onClose={() => setDataSourcesOpen(false)} />}
     </div>
   );
 }
