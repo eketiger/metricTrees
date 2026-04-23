@@ -29,6 +29,7 @@
     "fumadocs-mdx": "^11.0.0",
     "fumadocs-ui": "^14.0.0",
     "mixpanel-browser": "^2.55.0",
+    "mysql2": "^3.11.0",
     "next": "^15.5.0",
     "next-auth": "^4.24.7",
     "openai": "^4.67.0",

@@ -61,6 +61,7 @@ export default function HomePage() {
           <div className="home-side-sub">Builder plan · {(trees ?? []).length} trees</div>
           <nav className="home-nav">
             <a className="active">My trees</a>
+            <Link href="/data-sources">Data sources</Link>
             <Link href="/billing">Billing</Link>
             <Link href="/docs">Docs</Link>
             <Link href="/help">Help</Link>

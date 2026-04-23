@@ -1,0 +1,48 @@
+---
+title: MySQL data sources
+description: Connect a MySQL database to pull metric values live.
+---
+
+Metrics can pull node values directly from a MySQL database. Connect a database once, then
+point a node at it with a `SELECT`-only SQL query — Metrics will run the query on demand
+(via **Run & sync**) or stream updates in real time (via **Go Live**).
+
+## Security model
+
+- Credentials are encrypted at rest with **AES-256-GCM**. The encryption key lives in
+  `DATASOURCE_ENCRYPTION_KEY` (32 bytes, base64).
+- Only **read-only** SQL is executed. The SQL guard rejects anything that doesn't start
+  with `SELECT` or `WITH`, and blocks keywords like `INSERT`, `UPDATE`, `DELETE`, `DROP`,
+  `ALTER`, `CREATE`, `TRUNCATE`, `GRANT`, `REVOKE`, `CALL`, `LOAD`, `EXECUTE`, `SET`…
+- Every query gets an implicit `LIMIT` and a 10s timeout.
+- Connections default to SSL.
+
+## Creating a connection
+
+Open **Data sources** from the workspace sidebar, or from the editor's topbar **Data** button.
+Two input modes:
+
+- **Basic** — host, port, database, username, password.
+- **Connection URL** — a single `mysql://user:password@host:port/database` (or
+  `jdbc:mysql://…`) string.
+
+The **Authenticate & save** button tests the connection *before* persisting. If the handshake
+fails, nothing is written to our database.
+
+## Attaching a query to a node
+
+In the editor, select a node and open the **Query** tab. Pick a data source and write a
+`SELECT` that returns a single numeric column — Metrics uses the first numeric column of
+the first row as the node's current value.
+
+```sql
+SELECT COUNT(*) AS active_users
+FROM users
+WHERE last_seen_at > NOW() - INTERVAL 30 DAY;
+```
+
+## Real-time values
+
+Toggle **Go Live** in the editor topbar and the server starts polling every node's MySQL
+query on a 5-second interval, streaming updates over Server-Sent Events. The stream runs
+for up to 10 minutes before the client auto-reconnects.

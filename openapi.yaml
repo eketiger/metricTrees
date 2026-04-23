@@ -26,6 +26,8 @@ tags:
   - name: Copilot
   - name: Account
   - name: Health
+  - name: DataSources
+  - name: Live
 
 components:
   securitySchemes:
@@ -385,3 +387,126 @@ paths:
       summary: Permanently delete your account (GDPR right-to-erasure)
       responses:
         '200': { description: OK }
+
+  /api/data-sources:
+    get:
+      tags: [DataSources]
+      summary: List the authenticated user's MySQL data sources
+      responses:
+        '200': { description: OK }
+    post:
+      tags: [DataSources]
+      summary: Create and authenticate a new MySQL data source
+      description: |
+        Accepts either a Basic form (host, port, database, username, password) or a
+        Connection URL (`mysql://user:pass@host:port/db`). Credentials are encrypted at
+        rest with AES-256-GCM. If `testOnSave=true` (default) the connection is verified
+        before persistence.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [name, host, database, username, password]
+                  properties:
+                    mode: { type: string, enum: [basic] }
+                    name: { type: string }
+                    host: { type: string }
+                    port: { type: integer }
+                    database: { type: string }
+                    username: { type: string }
+                    password: { type: string }
+                    ssl: { type: boolean }
+                    testOnSave: { type: boolean }
+                - type: object
+                  required: [mode, name, url]
+                  properties:
+                    mode: { type: string, enum: [url] }
+                    name: { type: string }
+                    url: { type: string, example: 'mysql://user:pass@host:3306/db' }
+                    ssl: { type: boolean }
+                    testOnSave: { type: boolean }
+      responses:
+        '201': { description: Created }
+        '422': { description: Connection failed }
+
+  /api/data-sources/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [DataSources]
+      summary: Get a single data source (credentials redacted)
+      responses: { '200': { description: OK } }
+    put:
+      tags: [DataSources]
+      summary: Update a data source; pass retest=true to verify after changes
+      responses: { '200': { description: OK } }
+    delete:
+      tags: [DataSources]
+      summary: Remove a data source (unlinks nodes, keeps history)
+      responses: { '200': { description: OK } }
+
+  /api/data-sources/{id}/test:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    post:
+      tags: [DataSources]
+      summary: Re-test a data source's connection
+      responses:
+        '200': { description: OK }
+
+  /api/metric-trees/{treeId}/nodes/{nodeId}/refresh:
+    parameters:
+      - in: path
+        name: treeId
+        required: true
+        schema: { type: string }
+      - in: path
+        name: nodeId
+        required: true
+        schema: { type: string }
+    post:
+      tags: [Nodes]
+      summary: Execute the node's SQL query against its data source and persist the value
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                  description: Optional new query to persist and run
+      responses:
+        '200': { description: OK }
+        '422': { description: Query failed or rejected by SQL guard }
+
+  /api/metric-trees/{treeId}/live:
+    parameters:
+      - in: path
+        name: treeId
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Live]
+      summary: Real-time SSE stream of node values (server polls MySQL ~5s)
+      description: |
+        Server-Sent Events stream. Events:
+        - `hello`: { treeId, pollMs }
+        - `node_value`: { nodeId, value, sampledAt }
+        - `node_error`: { nodeId, error }
+        - `bye`: { reason }
+      responses:
+        '200':
+          description: OK
+          content:
+            text/event-stream: {}
